@@ -40,7 +40,45 @@ else
 fi
 
 if command -v claude-route >/dev/null 2>&1; then
-    claude-route
+    route_json="$(claude-route)"
+    printf '%s\n' "${route_json}"
+
+    if ! ROUTE_JSON="${route_json}" python3 - <<'PY'
+import json
+import os
+import sys
+
+supported_models = {"claude-sonnet-4.6", "claude-opus-4.6"}
+
+try:
+    route = json.loads(os.environ["ROUTE_JSON"])
+except Exception as exc:
+    print(f"claude-route JSON parse failed: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+
+if route.get("mode") != "direct":
+    print("route status: not direct", file=sys.stderr)
+    raise SystemExit(1)
+
+if route.get("backend") != "claude-amd-anthropic":
+    print("route backend: unexpected", file=sys.stderr)
+    raise SystemExit(1)
+
+if route.get("settings_parse_error"):
+    print("settings parse error: " + str(route["settings_parse_error"]), file=sys.stderr)
+    raise SystemExit(1)
+
+normalized_model = route.get("normalized_model")
+if normalized_model not in supported_models:
+    print(
+        "normalized model: unsupported -> " + repr(normalized_model),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+PY
+    then
+        status=1
+    fi
 fi
 
 exit "${status}"

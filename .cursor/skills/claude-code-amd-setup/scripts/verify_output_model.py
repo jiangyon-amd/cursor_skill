@@ -4,6 +4,13 @@ from __future__ import annotations
 import json
 import sys
 
+# Expects Claude Code `--output-format json` payloads that expose `is_error`
+# for API failures and `modelUsage` for successful requests.
+SUPPORTED_DIRECT_MODELS = {
+    "claude-sonnet-4.6",
+    "claude-opus-4.6",
+}
+
 
 def main() -> int:
     raw = sys.stdin.read().strip()
@@ -15,6 +22,14 @@ def main() -> int:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         print(f"ERROR: invalid JSON input: {exc}", file=sys.stderr)
+        return 2
+
+    if data.get("is_error"):
+        detail = data.get("result") or "unknown API error"
+        print(
+            "ERROR: Claude request failed before model validation: " + str(detail),
+            file=sys.stderr,
+        )
         return 2
 
     model_usage = data.get("modelUsage")
@@ -30,7 +45,18 @@ def main() -> int:
         )
         return 1
 
-    print("OK: Claude model(s) reported: " + ", ".join(sorted(model_usage)))
+    unsupported_models = [
+        name for name in model_usage if name not in SUPPORTED_DIRECT_MODELS
+    ]
+    if unsupported_models:
+        print(
+            "ERROR: unsupported direct model(s) reported: "
+            + ", ".join(sorted(unsupported_models)),
+            file=sys.stderr,
+        )
+        return 1
+
+    print("OK: Claude direct model(s) reported: " + ", ".join(sorted(model_usage)))
     return 0
 
 
