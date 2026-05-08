@@ -40,6 +40,8 @@ The script exits non-zero if any required item is missing.
 
 If `~/.claude/settings.json` is invalid JSON, `claude-route` will expose `settings_parse_error` and `healthcheck.sh` will fail until the wrapper repairs the file on the next `claude` launch.
 
+If `claude-route` already resolves to `claude-opus-4-7` but `/model` still shows older labels such as `Opus 4.6 (1M context)`, the problem is usually the native Claude Code build rather than the wrapper. Check `claude --version`, run `claude update`, relaunch the interactive session, and keep `/usr/local/bin/claude` ahead of `~/.local/bin` on `PATH`.
+
 ### `verify_output_model.py`
 
 Purpose:

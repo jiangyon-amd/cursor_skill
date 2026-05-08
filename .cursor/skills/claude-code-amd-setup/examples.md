@@ -78,3 +78,20 @@ Expected behavior:
 4. Preserve the no-secret-in-git rule.
 5. If `~/.claude/settings.json` contains `opus[1m]` or another unsupported alias, repair it to `claude-sonnet-4.6` or `claude-opus-4-7`.
 6. Re-test text output, model route, and a simple Bash tool call before declaring success.
+
+## Example 4: `/model` Still Shows Opus 4.6
+
+User request:
+
+```text
+`claude-route` says Opus 4.7, but `/model` still shows `Opus 4.6 (1M context)`. Fix the menu without breaking the AMD direct wrapper.
+```
+
+Expected behavior:
+
+1. Confirm that `which claude` still points to the wrapper, usually `/usr/local/bin/claude`.
+2. Do not move `~/.local/bin` ahead of the wrapper in `PATH`.
+3. Check `claude --version` and inspect `readlink -f ~/.local/bin/claude` when present.
+4. If the native Claude Code build is old, run `claude update`.
+5. Explain that already-open interactive sessions can keep stale menu text until they are restarted.
+6. Re-run `claude-route` and a simple `claude -p --output-format json ...` check before declaring the fix complete.
