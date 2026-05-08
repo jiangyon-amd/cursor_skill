@@ -30,8 +30,8 @@ settings.json: found
 {
   "mode": "direct",
   "backend": "claude-amd-anthropic",
-  "configured_model": "claude-sonnet-4.6",
-  "normalized_model": "claude-sonnet-4.6",
+  "configured_model": "claude-opus-4-7",
+  "normalized_model": "claude-opus-4-7",
   ...
 }
 ```
@@ -58,7 +58,7 @@ claude -p --output-format json 'Reply with exactly OK' | \
 Important:
 - this script verifies successful output against the supported direct models
 - it does not replace `claude-route`
-- use both checks together when you must prove the direct route is active and the resolved model is either `claude-sonnet-4.6` or `claude-opus-4.6`
+- use both checks together when you must prove the direct route is active and the resolved model is either `claude-sonnet-4.6` or `claude-opus-4-7`
 
 ## Conventions
 
