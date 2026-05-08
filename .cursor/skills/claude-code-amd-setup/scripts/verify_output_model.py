@@ -8,7 +8,7 @@ import sys
 # for API failures and `modelUsage` for successful requests.
 SUPPORTED_DIRECT_MODELS = {
     "claude-sonnet-4.6",
-    "claude-opus-4.6",
+    "claude-opus-4-7",
 }
 
 

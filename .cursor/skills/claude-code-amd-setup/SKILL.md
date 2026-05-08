@@ -10,7 +10,7 @@ description: Use when users want Claude Code configured for AMD LLM Gateway, nee
 Provide a safe workflow for setting up Claude Code against AMD LLM Gateway without committing secrets. The preferred result is:
 - `claude` always uses the direct AMD Anthropic endpoint
 - `~/.claude/settings.json` is the single source of truth for model selection
-- the supported direct models are `claude-sonnet-4.6` and `claude-opus-4.6`
+- the supported direct models are `claude-sonnet-4.6` and `claude-opus-4-7`
 - startup logic repairs persisted `/model` aliases such as `opus[1m]` back to supported direct models
 
 ## When to Use
@@ -27,8 +27,8 @@ Provide a safe workflow for setting up Claude Code against AMD LLM Gateway witho
 3. If the user does not provide the key, stop automatic setup and switch to placeholder-based manual steps.
 4. Keep secrets in user-local files such as `~/.bashrc`, not in the repository.
 5. Use the direct AMD Anthropic endpoint only. Do not add or restore proxy fallback.
-6. Default `claude` to `claude-sonnet-4.6`.
-7. Use `claude-opus-4.6` as the supported high-tier direct model.
+6. Default `claude` to `claude-opus-4-7`.
+7. Keep `claude-sonnet-4.6` as the supported lower-cost direct model.
 8. Treat `~/.claude/settings.json` as the supported model switch location.
 9. Verify `claude -p` works before claiming setup is complete.
 10. Never infer success from route alone. Verify the successful result model too.
@@ -76,9 +76,9 @@ Required behavior:
 Proceed with automatic local setup:
 
 1. update the user-local shell config to export `AMD_LLM_GATEWAY_KEY`
-2. install or update the `claude` wrapper so it forces direct AMD Anthropic mode, defaults to `claude-sonnet-4.6`, and normalizes unsupported persisted model aliases
+2. install or update the `claude` wrapper so it forces direct AMD Anthropic mode, defaults to `claude-opus-4-7`, and normalizes unsupported persisted model aliases
 3. install or update `claude-route` so users can verify the direct route and current configured model
-4. set `~/.claude/settings.json` to a supported direct model, normally `claude-sonnet-4.6`
+4. set `~/.claude/settings.json` to a supported direct model, normally `claude-opus-4-7`
 5. keep repository examples placeholder-based only
 6. source the shell config if needed or ask the user to open a new shell
 
@@ -95,22 +95,22 @@ Do not write fake values. Instead:
 Use only these exact model names in `~/.claude/settings.json`:
 
 - `claude-sonnet-4.6`
-- `claude-opus-4.6`
+- `claude-opus-4-7`
 
 Default:
 
 ```json
 {
   "apiKeyHelper": "echo amd-gateway-placeholder",
-  "model": "claude-sonnet-4.6"
+  "model": "claude-opus-4-7"
 }
 ```
 
-If the user wants the high-tier model, change `model` to `claude-opus-4.6`.
+If the user wants the lower-cost model, change `model` to `claude-sonnet-4.6`.
 
 ## Why `/model` Can Break Direct Mode
 
-Claude Code can persist interactive `/model` choices into `~/.claude/settings.json`. Some persisted aliases, especially `1m` variants like `opus[1m]` or `claude-opus-4.5[1m]`, are not accepted by AMD's direct Anthropic endpoint and can cause `400 BadRequest`.
+Claude Code can persist interactive `/model` choices into `~/.claude/settings.json`. Some persisted aliases, especially `1m` variants like `opus[1m]` or `claude-opus-4-7[1m]`, are not accepted by AMD's direct Anthropic endpoint and can cause `400 BadRequest`.
 
 Treat `/model` as unreliable for this setup. Change `~/.claude/settings.json` instead. The wrapper should repair known bad aliases on the next launch, but the clean path is still to keep the file on an exact supported model.
 
@@ -136,7 +136,7 @@ claude-route
 Expected direct-mode indicators:
 - `"mode": "direct"`
 - `"backend": "claude-amd-anthropic"`
-- `"normalized_model": "claude-sonnet-4.6"` or `"claude-opus-4.6"`
+- `"normalized_model": "claude-sonnet-4.6"` or `"claude-opus-4-7"`
 
 Then run a real direct command after setup:
 
@@ -178,7 +178,7 @@ claude -p --output-format json --allowedTools Bash -- \
 - [ ] no real secret added to repository files
 - [ ] user was prompted for key before automatic secret-bearing edits
 - [ ] manual fallback uses placeholders only
-- [ ] `claude-route` reports direct mode and a supported normalized 4.6 model
-- [ ] direct verification confirms either `claude-sonnet-4.6` or `claude-opus-4.6`
+- [ ] `claude-route` reports direct mode and a supported normalized direct model
+- [ ] direct verification confirms either `claude-sonnet-4.6` or `claude-opus-4-7`
 - [ ] `claude -p` text call was tested
 - [ ] Bash tool call was tested or any remaining limitation was stated clearly
