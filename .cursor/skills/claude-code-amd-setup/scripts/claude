@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# AMD LLM Gateway direct-mode wrapper for Claude Code.
+# - forces direct AMD Anthropic endpoint (no proxy)
+# - normalizes unsupported persisted model aliases in ~/.claude/settings.json
+# - defaults model to claude-opus-4-7
+set -u
+
+SUPPORTED_OPUS="claude-opus-4-7"
+SUPPORTED_SONNET="claude-sonnet-4.6"
+DEFAULT_MODEL="${SUPPORTED_OPUS}"
+
+# Load AMD_LLM_GATEWAY_KEY from ~/.bashrc (works even under non-interactive shells)
+if [ -z "${AMD_LLM_GATEWAY_KEY:-}" ] && [ -f "${HOME}/.bashrc" ]; then
+  _line="$(grep -E ^[[:space:]]*export[[:space:]]+AMD_LLM_GATEWAY_KEY= "${HOME}/.bashrc" | tail -1)"
+  if [ -n "${_line}" ]; then
+    eval "${_line}" >/dev/null 2>&1 || true
+  fi
+  unset _line
+fi
+
+if [ -z "${AMD_LLM_GATEWAY_KEY:-}" ]; then
+  echo "[claude wrapper] ERROR: AMD_LLM_GATEWAY_KEY is not set. Add it to ~/.bashrc." >&2
+  exit 1
+fi
+
+export ANTHROPIC_BASE_URL="https://llm-api.amd.com/Anthropic"
+export ANTHROPIC_CUSTOM_HEADERS="Ocp-Apim-Subscription-Key: ${AMD_LLM_GATEWAY_KEY}"
+export ANTHROPIC_API_KEY="dummy"
+export ANTHROPIC_AUTH_TOKEN="dummy"
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+# Repair ~/.claude/settings.json: replace unsupported aliases with supported models
+SETTINGS="${HOME}/.claude/settings.json"
+if [ -f "${SETTINGS}" ]; then
+  python3 - "${SETTINGS}" "${SUPPORTED_OPUS}" "${SUPPORTED_SONNET}" "${DEFAULT_MODEL}" <<"PY" || true
+import json, os, shutil, sys, time
+path, opus, sonnet, default = sys.argv[1:5]
+supported = {opus, sonnet}
+try:
+    with open(path) as f:
+        data = json.load(f)
+except Exception as e:
+    backup = path + f".invalid.{int(time.time())}"
+    shutil.copy2(path, backup)
+    json.dump({"apiKeyHelper": "echo amd-gateway-placeholder", "model": default}, open(path, "w"), indent=2)
+    sys.exit(0)
+model = data.get("model", "")
+m = str(model).lower()
+if m.startswith("opus") or "opus" in m:
+    new = opus
+elif m.startswith("sonnet") or "sonnet" in m:
+    new = sonnet
+elif model in supported:
+    new = model
+else:
+    new = default
+if new != model:
+    data["model"] = new
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+PY
+fi
+
+exec /usr/bin/claude "$@"

@@ -4,6 +4,59 @@ This skill intentionally keeps scripts minimal and secret-safe.
 
 ## Included Scripts
 
+### `claude`
+
+Reference implementation of the direct-mode `claude` wrapper. Install as
+`/usr/local/bin/claude` and keep it ahead of any other `claude` binary on
+`PATH`.
+
+Behavior:
+- loads `AMD_LLM_GATEWAY_KEY` from `~/.bashrc` even when invoked from a
+  non-interactive shell (it does not source `.bashrc`, only the matching
+  `export` line)
+- forces direct AMD Anthropic mode by setting `ANTHROPIC_BASE_URL`,
+  `ANTHROPIC_CUSTOM_HEADERS` (with `Ocp-Apim-Subscription-Key`), and dummy
+  `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN`
+- normalizes unsupported persisted model aliases in
+  `~/.claude/settings.json` (e.g. `opus[1m]` -> `claude-opus-4-7`,
+  anything starting with `sonnet` -> `claude-sonnet-4.6`)
+- if `settings.json` is invalid JSON, backs it up as
+  `settings.json.invalid.<timestamp>` and rewrites a clean default
+- `exec`s the underlying native Claude Code binary at `/usr/bin/claude`
+
+Install:
+
+```bash
+sudo install -m 0755 \
+  .cursor/skills/claude-code-amd-setup/scripts/claude \
+  /usr/local/bin/claude
+```
+
+### `claude-route`
+
+Direct-mode route inspector. Install as `/usr/local/bin/claude-route`.
+
+Output (JSON):
+
+```json
+{
+  "mode": "direct",
+  "backend": "claude-amd-anthropic",
+  "base_url": "https://llm-api.amd.com/Anthropic",
+  "configured_model": "claude-opus-4-7",
+  "normalized_model": "claude-opus-4-7",
+  "settings_parse_error": null
+}
+```
+
+Install:
+
+```bash
+sudo install -m 0755 \
+  .cursor/skills/claude-code-amd-setup/scripts/claude-route \
+  /usr/local/bin/claude-route
+```
+
 ### `healthcheck.sh`
 
 Purpose:

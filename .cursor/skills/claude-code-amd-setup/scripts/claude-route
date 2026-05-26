@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Direct-mode route inspector for AMD Claude Code setup.
+# Prints JSON with: mode, backend, base_url, configured_model, normalized_model, settings_parse_error
+set -u
+
+SUPPORTED_OPUS="claude-opus-4-7"
+SUPPORTED_SONNET="claude-sonnet-4.6"
+DEFAULT_MODEL="${SUPPORTED_OPUS}"
+SETTINGS="${HOME}/.claude/settings.json"
+
+python3 - "${SETTINGS}" "${SUPPORTED_OPUS}" "${SUPPORTED_SONNET}" "${DEFAULT_MODEL}" <<"PY"
+import json, os, sys
+path, opus, sonnet, default = sys.argv[1:5]
+out = {
+    "mode": "direct",
+    "backend": "claude-amd-anthropic",
+    "base_url": "https://llm-api.amd.com/Anthropic",
+    "configured_model": None,
+    "normalized_model": None,
+    "settings_parse_error": None,
+}
+if not os.path.isfile(path):
+    out["settings_parse_error"] = f"missing: {path}"
+    print(json.dumps(out, indent=2)); sys.exit(0)
+try:
+    with open(path) as f:
+        data = json.load(f)
+except Exception as e:
+    out["settings_parse_error"] = f"{type(e).__name__}: {e}"
+    print(json.dumps(out, indent=2)); sys.exit(0)
+m = data.get("model", "")
+out["configured_model"] = m
+ml = str(m).lower()
+supported = {opus, sonnet}
+if m in supported:
+    out["normalized_model"] = m
+elif "opus" in ml:
+    out["normalized_model"] = opus
+elif "sonnet" in ml:
+    out["normalized_model"] = sonnet
+else:
+    out["normalized_model"] = default
+print(json.dumps(out, indent=2))
+PY
