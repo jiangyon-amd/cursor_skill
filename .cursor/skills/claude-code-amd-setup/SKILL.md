@@ -10,7 +10,10 @@ description: Use when users want Claude Code configured for AMD LLM Gateway, nee
 Provide a safe workflow for setting up Claude Code against AMD LLM Gateway without committing secrets. The preferred result is:
 - `claude` always uses the direct AMD Anthropic endpoint
 - `~/.claude/settings.json` is the single source of truth for model selection
-- the supported direct models are `claude-sonnet-4.6` and `claude-opus-4-7`
+- the supported direct models are `claude-sonnet-4.6` and `claude-opus-4-8`
+- the wrapper pins the `opus` alias and the picker's Default option to `claude-opus-4-8` and declares its capabilities, so effort levels and adaptive thinking work for the routed id
+- sessions default to `max` effort (deepest reasoning) via `CLAUDE_CODE_EFFORT_LEVEL`
+- the `/model` picker is scoped to Opus only via `availableModels: ["opus"]`
 - startup logic repairs persisted `/model` aliases such as `opus[1m]` back to supported direct models
 - if `/model` labels look older than `claude-route`, update the native Claude Code build and restart the session instead of changing wrapper precedence
 
@@ -28,7 +31,7 @@ Provide a safe workflow for setting up Claude Code against AMD LLM Gateway witho
 3. If the user does not provide the key, stop automatic setup and switch to placeholder-based manual steps.
 4. Keep secrets in user-local files such as `~/.bashrc`, not in the repository.
 5. Use the direct AMD Anthropic endpoint only. Do not add or restore proxy fallback.
-6. Default `claude` to `claude-opus-4-7`.
+6. Default `claude` to `claude-opus-4-8`.
 7. Keep `claude-sonnet-4.6` as the supported lower-cost direct model.
 8. Treat `~/.claude/settings.json` as the supported model switch location.
 9. Verify `claude -p` works before claiming setup is complete.
@@ -80,9 +83,9 @@ Proceed with automatic local setup:
 
 1. update the user-local shell config to export `AMD_LLM_GATEWAY_KEY`
 2. if `~/.local/bin/claude` exists, keep `~/.local/bin` after system paths; do not prepend it ahead of `/usr/local/bin`
-3. install or update the `claude` wrapper so it forces direct AMD Anthropic mode, defaults to `claude-opus-4-7`, and normalizes unsupported persisted model aliases
+3. install or update the `claude` wrapper so it forces direct AMD Anthropic mode, defaults to `claude-opus-4-8`, and normalizes unsupported persisted model aliases
 4. install or update `claude-route` so users can verify the direct route and current configured model
-5. set `~/.claude/settings.json` to a supported direct model, normally `claude-opus-4-7`
+5. set `~/.claude/settings.json` to a supported direct model, normally `claude-opus-4-8`
 6. if `claude --version` is old or `/model` still shows stale labels such as `Opus 4.6 (1M context)`, run `claude update`
 7. after updating the native CLI, exit and relaunch any open interactive Claude session before trusting `/model`
 8. keep repository examples placeholder-based only
@@ -101,28 +104,57 @@ Do not write fake values. Instead:
 Use only these exact model names in `~/.claude/settings.json`:
 
 - `claude-sonnet-4.6`
-- `claude-opus-4-7`
+- `claude-opus-4-8`
 
-Default:
+Default `settings.json`:
 
 ```json
 {
   "apiKeyHelper": "echo amd-gateway-placeholder",
-  "model": "claude-opus-4-7"
+  "model": "claude-opus-4-8",
+  "availableModels": ["opus"]
 }
 ```
 
-If the user wants the lower-cost model, change `model` to `claude-sonnet-4.6`.
+`availableModels: ["opus"]` scopes the `/model` picker to Opus only. The allowlist
+matches the family alias, so the routed `claude-opus-4-8` stays selectable while the
+Sonnet/Haiku presets are hidden. The Default option is not affected by the allowlist;
+the wrapper pins it separately (see below).
+
+If the user wants the lower-cost model, change `model` to `claude-sonnet-4.6` and
+widen `availableModels` accordingly.
+
+## Default Model, Effort, and Capabilities
+
+For an LLM-gateway-routed deployment, the wrapper exports the documented env vars so
+the picker and the routed model stay consistent:
+
+- `ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4-8` pins the `opus` alias and the picker's
+  Default option to the real gateway model. This fixes stale menu labels such as
+  `Default (recommended) ... Opus 4.7` and `/fast (Opus 4.7)`.
+- `ANTHROPIC_DEFAULT_OPUS_MODEL_NAME` / `_DESCRIPTION` set how the pinned model is shown
+  in the picker.
+- `ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES=effort,max_effort,xhigh_effort,thinking,adaptive_thinking,interleaved_thinking`
+  tells Claude Code that the routed id supports effort levels and adaptive thinking.
+  Custom/provider-specific ids are otherwise not auto-detected and these features stay off.
+- `CLAUDE_CODE_EFFORT_LEVEL=max` defaults every session to the deepest reasoning. `max`
+  cannot be persisted through the `effortLevel` setting, so this env var is the only way
+  to make it the default.
+
+Opus 4.7+ always uses adaptive reasoning, so the legacy fixed `MAX_THINKING_TOKENS` /
+`thinking.type=enabled` path is rejected by the gateway (`400 BadRequest`). Control depth
+with the effort level instead. Requires a Claude Code build new enough to know
+`claude-opus-4-8` and the `max_effort` / `xhigh_effort` capabilities (2.1.156+ recommended).
 
 ## Why `/model` Can Break Direct Mode
 
-Claude Code can persist interactive `/model` choices into `~/.claude/settings.json`. Some persisted aliases, especially `1m` variants like `opus[1m]` or `claude-opus-4-7[1m]`, are not accepted by AMD's direct Anthropic endpoint and can cause `400 BadRequest`.
+Claude Code can persist interactive `/model` choices into `~/.claude/settings.json`. Some persisted aliases, especially `1m` variants like `opus[1m]` or `claude-opus-4-8[1m]`, are not accepted by AMD's direct Anthropic endpoint and can cause `400 BadRequest`.
 
 Treat `/model` as unreliable for this setup. Change `~/.claude/settings.json` instead. The wrapper should repair known bad aliases on the next launch, but the clean path is still to keep the file on an exact supported model.
 
 ## When `/model` Shows Stale Labels
 
-`claude-route` is the source of truth for the current routed model. An older native Claude Code build can still show stale interactive labels such as `Opus 4.6 (1M context)` even when the wrapper and route already resolve `opus` to `claude-opus-4-7`.
+`claude-route` is the source of truth for the current routed model. An older native Claude Code build can still show stale interactive labels such as `Opus 4.6 (1M context)` even when the wrapper and route already resolve `opus` to `claude-opus-4-8`.
 
 When this happens:
 
@@ -154,7 +186,7 @@ claude-route
 Expected direct-mode indicators:
 - `"mode": "direct"`
 - `"backend": "claude-amd-anthropic"`
-- `"normalized_model": "claude-sonnet-4.6"` or `"claude-opus-4-7"`
+- `"normalized_model": "claude-sonnet-4.6"` or `"claude-opus-4-8"`
 
 Then run a real direct command after setup:
 
@@ -202,7 +234,7 @@ claude -p --output-format json --allowedTools Bash -- \
 - [ ] user was prompted for key before automatic secret-bearing edits
 - [ ] manual fallback uses placeholders only
 - [ ] `claude-route` reports direct mode and a supported normalized direct model
-- [ ] direct verification confirms either `claude-sonnet-4.6` or `claude-opus-4-7`
+- [ ] direct verification confirms either `claude-sonnet-4.6` or `claude-opus-4-8`
 - [ ] `which claude` still points to the wrapper, not directly to `~/.local/bin/claude`
 - [ ] if `/model` labels were stale, `claude --version` was checked and the session was relaunched after any native CLI update
 - [ ] `claude -p` text call was tested

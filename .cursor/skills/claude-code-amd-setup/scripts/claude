@@ -2,10 +2,13 @@
 # AMD LLM Gateway direct-mode wrapper for Claude Code.
 # - forces direct AMD Anthropic endpoint (no proxy)
 # - normalizes unsupported persisted model aliases in ~/.claude/settings.json
-# - defaults model to claude-opus-4-7
+# - pins the opus alias and the picker's Default option to the gateway's real Opus 4.8
+#   and declares its capabilities so effort levels + adaptive thinking are enabled
+# - defaults effort to max (deepest reasoning)
+# - defaults model to claude-opus-4-8
 set -u
 
-SUPPORTED_OPUS="claude-opus-4-7"
+SUPPORTED_OPUS="claude-opus-4-8"
 SUPPORTED_SONNET="claude-sonnet-4.6"
 DEFAULT_MODEL="${SUPPORTED_OPUS}"
 
@@ -25,9 +28,23 @@ fi
 
 export ANTHROPIC_BASE_URL="https://llm-api.amd.com/Anthropic"
 export ANTHROPIC_CUSTOM_HEADERS="Ocp-Apim-Subscription-Key: ${AMD_LLM_GATEWAY_KEY}"
-export ANTHROPIC_API_KEY="dummy"
+# Real auth is the Ocp-Apim header above; this single dummy credential only stops the
+# login prompt. Setting BOTH ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN triggers a
+# startup "Auth conflict" warning, so keep only one of them.
 export ANTHROPIC_AUTH_TOKEN="dummy"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+# Pin the opus alias and the picker's Default option to the gateway's real Opus 4.8,
+# give it a clear display name, and declare the routed id's capabilities so Claude Code
+# enables effort levels and adaptive thinking for it (custom ids are not auto-detected).
+export ANTHROPIC_DEFAULT_OPUS_MODEL="${SUPPORTED_OPUS}"
+export ANTHROPIC_DEFAULT_OPUS_MODEL_NAME="Opus 4.8 (AMD direct)"
+export ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION="AMD gateway Opus 4.8 (max effort)"
+export ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES="effort,max_effort,xhigh_effort,thinking,adaptive_thinking,interleaved_thinking"
+
+# Default every session to the deepest reasoning. "max" is session-scoped unless set via
+# this env var, which also takes precedence over /effort and the effortLevel setting.
+export CLAUDE_CODE_EFFORT_LEVEL="max"
 
 # Repair ~/.claude/settings.json: replace unsupported aliases with supported models
 SETTINGS="${HOME}/.claude/settings.json"

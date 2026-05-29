@@ -3,7 +3,7 @@
 # Prints JSON with: mode, backend, base_url, configured_model, normalized_model, settings_parse_error
 set -u
 
-SUPPORTED_OPUS="claude-opus-4-7"
+SUPPORTED_OPUS="claude-opus-4-8"
 SUPPORTED_SONNET="claude-sonnet-4.6"
 DEFAULT_MODEL="${SUPPORTED_OPUS}"
 SETTINGS="${HOME}/.claude/settings.json"

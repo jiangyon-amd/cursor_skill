@@ -30,7 +30,7 @@ claude -p --output-format json 'Reply with exactly OK' | \
   python3 ".cursor/skills/claude-code-amd-setup/scripts/verify_output_model.py"
 ```
 
-6. Confirm that the reported model is either `claude-sonnet-4.6` or `claude-opus-4-7`.
+6. Confirm that the reported model is either `claude-sonnet-4.6` or `claude-opus-4-8`.
 7. Confirm that no real key was written into repository files.
 
 ## Example 2: Manual Fallback When User Will Not Share Key
@@ -51,7 +51,7 @@ Expected behavior:
 export AMD_LLM_GATEWAY_KEY="PASTE_YOUR_KEY_HERE"
 ```
 
-4. Explain that the desired default is direct `claude` using `claude-opus-4-7`.
+4. Explain that the desired default is direct `claude` using `claude-opus-4-8`.
 5. Explain that model switching should be done by editing `~/.claude/settings.json`, for example to `claude-sonnet-4.6`.
 6. Explain which files the user must update locally.
 7. Give verification commands the user can run after they finish:
@@ -76,7 +76,7 @@ Expected behavior:
 2. Check whether the key is present without printing it.
 3. Run `claude-route` to confirm the machine is on direct mode and inspect the configured versus normalized model.
 4. Preserve the no-secret-in-git rule.
-5. If `~/.claude/settings.json` contains `opus[1m]` or another unsupported alias, repair it to `claude-sonnet-4.6` or `claude-opus-4-7`.
+5. If `~/.claude/settings.json` contains `opus[1m]` or another unsupported alias, repair it to `claude-sonnet-4.6` or `claude-opus-4-8`.
 6. Re-test text output, model route, and a simple Bash tool call before declaring success.
 
 ## Example 4: `/model` Still Shows Opus 4.6
@@ -84,7 +84,7 @@ Expected behavior:
 User request:
 
 ```text
-`claude-route` says Opus 4.7, but `/model` still shows `Opus 4.6 (1M context)`. Fix the menu without breaking the AMD direct wrapper.
+`claude-route` says Opus 4.8, but `/model` still shows an older label such as `Opus 4.6 (1M context)`. Fix the menu without breaking the AMD direct wrapper.
 ```
 
 Expected behavior:
@@ -92,6 +92,7 @@ Expected behavior:
 1. Confirm that `which claude` still points to the wrapper, usually `/usr/local/bin/claude`.
 2. Do not move `~/.local/bin` ahead of the wrapper in `PATH`.
 3. Check `claude --version` and inspect `readlink -f ~/.local/bin/claude` when present.
-4. If the native Claude Code build is old, run `claude update`.
-5. Explain that already-open interactive sessions can keep stale menu text until they are restarted.
-6. Re-run `claude-route` and a simple `claude -p --output-format json ...` check before declaring the fix complete.
+4. If the native Claude Code build is old, run `claude update` (2.1.156+ is recommended for Opus 4.8 and the `max`/`xhigh` effort levels).
+5. Confirm the wrapper exports `ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4-8`; this pins the `opus` alias and the Default option to the routed model and is what keeps the `Default (recommended)` and `/fast` labels current.
+6. Explain that already-open interactive sessions can keep stale menu text until they are restarted.
+7. Re-run `claude-route` and a simple `claude -p --output-format json ...` check before declaring the fix complete.

@@ -48,7 +48,7 @@ import json
 import os
 import sys
 
-supported_models = {"claude-sonnet-4.6", "claude-opus-4-7"}
+supported_models = {"claude-sonnet-4.6", "claude-opus-4-8"}
 
 try:
     route = json.loads(os.environ["ROUTE_JSON"])
