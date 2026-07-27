@@ -56,7 +56,7 @@ The script exits non-zero if any required item is missing.
 
 If `~/.claude/settings.json` is invalid JSON, `claude-route` will expose `settings_parse_error` and `healthcheck.sh` will fail until the wrapper repairs the file on the next `claude` launch.
 
-If `claude-route` already resolves to `claude-opus-5` but `/model` shows an older label or does not list Opus 5 at all, the problem is the native Claude Code build's bundled model registry, not the wrapper. Check `claude --version`, run `claude update`, relaunch the interactive session, and keep `/usr/local/bin/claude` ahead of `~/.local/bin` on `PATH`. Direct calls still route correctly in the meantime because the wrapper passes `--model claude-opus-5` explicitly.
+If `claude-route` already resolves to `claude-opus-5` but `/model` shows an older label or does not list Opus 5 at all, the problem is the native Claude Code build's bundled model registry, not the wrapper. Check `claude --version`, run `claude-selfupdate`, relaunch the interactive session, and keep `/usr/local/bin/claude` ahead of `~/.local/bin` on `PATH`. Direct calls still route correctly in the meantime because the wrapper passes `--model claude-opus-5` explicitly.
 
 ### `verify_output_model.py`
 
@@ -111,6 +111,47 @@ Sourceable helper that loads `AMD_LLM_GATEWAY_KEY` (and the optional
 `claude-route` source it from their own directory; keep it next to them in
 `/usr/local/bin`.
 
+### `claude-selfupdate.sh` (installed as `/usr/local/bin/claude-selfupdate`)
+
+Scans Anthropic's release CDN and installs a newer native build.
+
+This exists because neither built-in update path is safe under this setup:
+
+- `claude update` cannot see releases. The wrapper exports
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, and in that mode Claude Code
+  skips its latest-version lookup and the built-in updater suppresses the same
+  fetches.
+- `curl .../install.sh | bash` finishes by running `claude install`, which
+  rewrites launcher and shell integration and can put `~/.local/bin` ahead of
+  `/usr/local/bin` on `PATH`, shadowing the wrapper.
+
+Instead it reads `<CDN>/<channel>` for the target version, verifies the binary's
+SHA256 against `<CDN>/<version>/manifest.json`, smoke-tests `--version`, and only
+then swaps the `~/.local/bin/claude` symlink. It writes no shell config and needs
+no gateway key.
+
+```bash
+claude-selfupdate                  # scan the latest channel, install if newer
+claude-selfupdate --check          # report only; exit 10 when an update exists
+claude-selfupdate --channel stable # stable can be OLDER than an installed latest
+claude-selfupdate --version 2.1.220
+claude-selfupdate --force          # reinstall the target version
+claude-selfupdate --allow-downgrade
+claude-selfupdate --prune 2        # keep only the newest 2 builds
+claude-selfupdate --rollback       # relink to the previously installed build
+```
+
+Exit codes: `0` installed or already current, `10` for `--check` when an update
+is available, `1` on failure.
+
+Safety properties:
+- refuses to move backwards unless `--allow-downgrade` is passed
+- leaves the working install untouched if the checksum or smoke test fails
+- swaps the symlink atomically, so a concurrent `claude` launch never sees it missing
+- takes a lock directory to serialize concurrent runs
+- keeps old builds for `--rollback`; `--prune N` reclaims the ~250MB each
+- reports whether the installed build's model registry knows the configured model
+
 ### `install_native.sh`
 
 Installs the native Claude Code binary into
@@ -130,6 +171,9 @@ docker exec <ctr> bash -lc 'install_native.sh --seed /tmp/claude-seed'
 ```
 
 ## Conventions
+
+- Update the native build with `claude-selfupdate`, never `claude update` or the
+  official installer, so the wrapper stays first on `PATH`.
 
 - Never print the actual gateway key.
 - Keep scripts deterministic and local-only.

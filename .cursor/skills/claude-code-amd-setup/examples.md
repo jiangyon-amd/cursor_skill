@@ -92,13 +92,31 @@ Expected behavior:
 1. Confirm that `which claude` still points to the wrapper, usually `/usr/local/bin/claude`.
 2. Do not move `~/.local/bin` ahead of the wrapper in `PATH`.
 3. Check `claude --version` and inspect `readlink -f ~/.local/bin/claude` when present.
-4. If the native Claude Code build is old, run `claude update`.
+4. If the native Claude Code build is old, run `claude-selfupdate`. Explain that `claude update` is a dead end here, because the wrapper's `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` makes Claude Code skip its latest-version lookup.
 5. Explain that already-open interactive sessions can keep stale menu text until they are restarted.
 6. Explain that the menu comes from the binary's bundled model registry, so a just-released gateway model can be missing from it. This does not break routing: the wrapper passes `--model claude-opus-5` explicitly, and `modelUsage` in the JSON output proves which model answered.
 7. Do not "fix" a missing menu entry by downgrading `~/.claude/settings.json` to an older model.
 8. Re-run `claude-route` and a simple `claude -p --output-format json ...` check before declaring the fix complete.
 
-## Example 5: Cost Control Via Effort
+## Example 5: The Native Build Never Updates
+
+User request:
+
+```text
+My Claude Code has been stuck on the same version for weeks and `claude update` says nothing. Is the AMD wrapper blocking it?
+```
+
+Expected behavior:
+
+1. Confirm the version with `claude --version` and compare it against the release CDN using `claude-selfupdate --check`.
+2. Explain the cause rather than guessing: the wrapper exports `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, and in that essential-traffic mode Claude Code skips its latest-version lookup, so the built-in updater has nothing to report.
+3. Do not "fix" it by unsetting that variable in the wrapper or by running the official installer, which can reorder `PATH` ahead of `/usr/local/bin/claude`.
+4. Run `claude-selfupdate` to install the newer build; it verifies the SHA256 against the release manifest before swapping the symlink.
+5. Re-verify with `claude-route`, `which claude`, and a real `claude -p --output-format json ...` call.
+6. Tell the user to restart open interactive sessions, since a running process keeps the build it started with.
+7. Mention `claude-selfupdate --prune 2` if `~/.local/share/claude/versions/` has grown, and `--rollback` if the new build misbehaves.
+
+## Example 6: Cost Control Via Effort
 
 User request:
 

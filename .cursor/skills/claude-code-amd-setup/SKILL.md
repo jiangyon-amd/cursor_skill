@@ -54,6 +54,8 @@ Use this minimal pattern when creating or repairing the local setup:
   - wrapper that forces direct AMD Anthropic mode, enables compatibility settings, and normalizes unsupported model aliases to supported direct models
 - `/usr/local/bin/claude-route`
   - route inspector that reports direct route plus configured and normalized model state
+- `/usr/local/bin/claude-selfupdate`
+  - version scanner and updater for the native build; the built-in `claude update` cannot see releases while the wrapper disables nonessential traffic
 - `/usr/local/bin/claude_amd_common.py` and `/usr/local/bin/load_gateway_env.sh`
   - helper modules the wrapper and route inspector load from their own directory
 
@@ -119,6 +121,7 @@ Check the current machine without leaking secrets:
 
 - `claude --version`
 - `claude-route`
+- `claude-selfupdate --check` to see whether the native build is behind
 - `which claude`
 - `readlink -f "$HOME/.local/bin/claude"` when that path exists
 - `echo "${AMD_LLM_GATEWAY_KEY:+set}"`
@@ -146,11 +149,12 @@ Proceed with automatic local setup:
 2. if `~/.local/bin/claude` exists, keep `~/.local/bin` after system paths; do not prepend it ahead of `/usr/local/bin`. If the native binary is missing, install it with `install_native.sh` (seed from an existing install when the download stalls)
 3. install or update the `claude` wrapper (plus `claude-route`, `claude_amd_common.py`, and `load_gateway_env.sh` alongside it) so it forces direct AMD Anthropic mode, defaults to `claude-opus-5` at `--effort medium`, resolves the `-max` effort alias, and normalizes unsupported persisted model aliases
 4. install or update `claude-route` so users can verify the direct route, current configured model, and resolved effort
-5. set `~/.claude/settings.json` to a supported selection, normally `claude-opus-5`
-6. if `claude --version` is old or `/model` still shows stale labels such as `Opus 4.8`, run `claude update`
-7. after updating the native CLI, exit and relaunch any open interactive Claude session before trusting `/model`
-8. keep repository examples placeholder-based only
-9. source the shell config if needed or ask the user to open a new shell
+5. install `claude-selfupdate` so the native build can be kept current without `claude update` or the official installer
+6. set `~/.claude/settings.json` to a supported selection, normally `claude-opus-5`
+7. if `claude --version` is old or `/model` still shows stale labels such as `Opus 4.8`, run `claude-selfupdate`
+8. after updating the native CLI, exit and relaunch any open interactive Claude session before trusting `/model`
+9. keep repository examples placeholder-based only
+10. source the shell config if needed or ask the user to open a new shell
 
 #### Path B: User does not provide key
 
@@ -212,6 +216,51 @@ Claude Code can persist interactive `/model` choices into `~/.claude/settings.js
 
 Treat `/model` as unreliable for this setup. Change `~/.claude/settings.json` instead. The wrapper should repair known bad aliases on the next launch, but the clean path is still to keep the file on an exact supported model.
 
+## Keeping the Native Build Current
+
+Run `claude-selfupdate` to scan Anthropic's release CDN and install a newer
+native build. This is the supported way to update under this setup, because the
+two built-in paths both misbehave here:
+
+- **`claude update` never sees a release.** The wrapper exports
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, and in that essential-traffic
+  mode Claude Code skips its latest-version lookup entirely. The built-in
+  updater suppresses the same fetches, so an AMD-wrapped install silently stops
+  noticing new versions.
+- **The official installer can shadow the wrapper.** `curl .../install.sh | bash`
+  ends by running `claude install`, which rewrites launcher and shell
+  integration and may place `~/.local/bin` ahead of `/usr/local/bin` on `PATH`.
+  That would bypass the wrapper and lose direct-mode env and model normalization.
+
+`claude-selfupdate` avoids both: it downloads the versioned binary straight from
+the CDN, verifies its SHA256 against the release manifest, and only then swaps
+the `~/.local/bin/claude` symlink. It touches no shell config and needs no
+gateway key.
+
+```bash
+claude-selfupdate               # scan the latest channel and install if newer
+claude-selfupdate --check       # report only; exit 10 when an update exists
+claude-selfupdate --prune 2     # also drop old builds, keeping the newest 2
+claude-selfupdate --rollback    # relink to the previously installed build
+```
+
+Behavior worth knowing:
+
+- follows the `latest` channel by default; `--channel stable` is available, but
+  note `stable` can be *older* than an installed `latest` build
+- refuses to move backwards unless you pass `--allow-downgrade`, so following
+  `stable` on a newer install is a no-op rather than a surprise downgrade
+- verifies the checksum and smoke-tests `--version` on the new binary before
+  relinking, and leaves the old build in place if either check fails
+- keeps previous builds on disk (~250MB each) so `--rollback` works; pass
+  `--prune N` to reclaim the space
+- holds a lock directory so two concurrent runs cannot fight over the symlink
+- reports whether the new build's bundled model registry knows the configured
+  model, which is the check that matters after a gateway model launch
+
+Restart any open interactive session afterwards; a running process keeps the
+build it started with.
+
 ## When `/model` Does Not List Opus 5
 
 The native Claude Code binary ships its own model registry, and a build can be
@@ -225,10 +274,12 @@ explicitly, so direct calls resolve correctly even when the menu does not know
 the name. Confirm it with `claude-route` plus a real `claude -p --output-format json ...`
 call and check the reported `modelUsage`, not the menu.
 
-To make the menu agree, run `claude update` and relaunch the session. If the
-build is already current and `/model` still lacks Opus 5, the registry has simply
-not caught up yet — keep `~/.claude/settings.json` on `claude-opus-5` and do not
-"fix" it by selecting an older model from the menu.
+To make the menu agree, run `claude-selfupdate` and relaunch the session. Do not
+rely on `claude update` here: the wrapper's essential-traffic mode stops it from
+ever seeing a new release. If the build is already current and `/model` still
+lacks Opus 5, the registry has simply not caught up yet — keep
+`~/.claude/settings.json` on `claude-opus-5` and do not "fix" it by selecting an
+older model from the menu.
 
 ## When `/model` Shows Stale Labels
 
@@ -238,7 +289,7 @@ When this happens:
 
 - keep `/usr/local/bin/claude` first on `PATH`; do not prepend `~/.local/bin`
 - check `claude --version`
-- run `claude update` to refresh the native build in `~/.local/share/claude/versions/`
+- run `claude-selfupdate` to refresh the native build in `~/.local/share/claude/versions/`
 - exit and relaunch the interactive Claude session, then re-check `/model`
 - verify again with `claude-route` and a real `claude -p --output-format json ...` call
 
@@ -309,7 +360,7 @@ claude -p --output-format json --allowedTools Bash -- \
 7. old shell still has stale env
    - reload the shell or open a new terminal before re-testing
 8. `/model` still shows stale labels, or does not list Opus 5 at all
-   - check `claude --version`; if the native CLI is old, run `claude update`
+   - check `claude --version`; if the native CLI is old, run `claude-selfupdate` (not `claude update`, which cannot see releases in essential-traffic mode)
    - restart the interactive session after the update, then re-check `claude-route`
    - if the menu still lacks Opus 5 on a current build, its bundled model registry has not caught up; the explicit `--model claude-opus-5` from the wrapper still routes correctly, so trust `claude-route` and `modelUsage` over the menu
 9. wrapper reports `AMD_LLM_GATEWAY_KEY is not set` but the export is in `~/.bashrc`
@@ -318,6 +369,15 @@ claude -p --output-format json --allowedTools Bash -- \
    - the ~240MB binary download is slow/blocked; seed from an existing same-OS/arch install with `install_native.sh --seed <path>` (or `docker cp` the version file into the container first)
 11. only `root` works in a container, other users get "not set" or "binary not found"
    - per-user state is keyed on `$HOME`; give each user its own `~/.local/bin/claude`, a reachable key (`~/.config/claude-amd/env`), and `~/.claude/settings.json`
+12. the native build never updates itself
+   - expected: the wrapper sets `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, which makes Claude Code skip its latest-version lookup, so the built-in updater goes quiet
+   - run `claude-selfupdate` (or `claude-selfupdate --check` first); do not switch to the official installer, which can reorder `PATH` ahead of the wrapper
+13. a new build misbehaves after `claude-selfupdate`
+   - previous builds are kept in `~/.local/share/claude/versions/`; run `claude-selfupdate --rollback` to relink the prior one
+14. `claude-selfupdate` reports another run holds the lock
+   - a concurrent run is in progress; if none is active, remove `~/.local/share/claude/versions/.selfupdate.lock` and retry
+15. `~/.local/share/claude/versions/` grows by ~250MB per build
+   - run `claude-selfupdate --prune 2` to keep the current build plus one rollback target
 
 ## Validation Checklist
 
@@ -330,5 +390,7 @@ claude -p --output-format json --allowedTools Bash -- \
 - [ ] direct verification confirms either `claude-sonnet-5` or `claude-opus-5`
 - [ ] `which claude` still points to the wrapper, not directly to `~/.local/bin/claude`
 - [ ] if `/model` labels were stale, `claude --version` was checked and the session was relaunched after any native CLI update
+- [ ] `claude-selfupdate --check` was run, so the user knows whether the native build is behind
+- [ ] any native update went through `claude-selfupdate`, not the official installer, so `which claude` still resolves to the wrapper
 - [ ] `claude -p` text call was tested
 - [ ] Bash tool call was tested or any remaining limitation was stated clearly
