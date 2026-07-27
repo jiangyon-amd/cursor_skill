@@ -7,8 +7,8 @@ import sys
 # Expects Claude Code `--output-format json` payloads that expose `is_error`
 # for API failures and `modelUsage` for successful requests.
 SUPPORTED_DIRECT_MODELS = {
-    "claude-sonnet-4.6",
-    "claude-opus-4-7",
+    "claude-sonnet-5",
+    "claude-opus-5",
 }
 
 

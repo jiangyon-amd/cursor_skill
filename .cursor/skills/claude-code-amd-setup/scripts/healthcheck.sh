@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ -z "${AMD_LLM_GATEWAY_KEY:-}" ] && [ -f "${HOME}/.bashrc" ]; then
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "${SELF}")" && pwd)"
+
+if [ -f "${SCRIPT_DIR}/load_gateway_env.sh" ]; then
+    # shellcheck source=/dev/null
+    . "${SCRIPT_DIR}/load_gateway_env.sh"
+elif [ -z "${AMD_LLM_GATEWAY_KEY:-}" ] && [ -f "${HOME}/.bashrc" ]; then
     export PS1="${PS1:-claude-healthcheck$ }"
     set +u
     # shellcheck disable=SC1090
@@ -48,7 +54,7 @@ import json
 import os
 import sys
 
-supported_models = {"claude-sonnet-4.6", "claude-opus-4-7"}
+supported_models = {"claude-sonnet-5", "claude-opus-5"}
 
 try:
     route = json.loads(os.environ["ROUTE_JSON"])
@@ -74,6 +80,13 @@ if normalized_model not in supported_models:
         "normalized model: unsupported -> " + repr(normalized_model),
         file=sys.stderr,
     )
+    raise SystemExit(1)
+
+# Claude Code's own per-model default is "high"; this setup must pin an
+# explicit lower effort unless the "-max" selection was chosen on purpose.
+effort = route.get("effort")
+if effort not in {"medium", "max"}:
+    print("effort: unexpected -> " + repr(effort), file=sys.stderr)
     raise SystemExit(1)
 PY
     then

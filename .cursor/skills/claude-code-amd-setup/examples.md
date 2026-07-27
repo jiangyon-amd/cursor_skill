@@ -30,7 +30,7 @@ claude -p --output-format json 'Reply with exactly OK' | \
   python3 ".cursor/skills/claude-code-amd-setup/scripts/verify_output_model.py"
 ```
 
-6. Confirm that the reported model is either `claude-sonnet-4.6` or `claude-opus-4-7`.
+6. Confirm that the reported model is either `claude-sonnet-5` or `claude-opus-5`.
 7. Confirm that no real key was written into repository files.
 
 ## Example 2: Manual Fallback When User Will Not Share Key
@@ -51,8 +51,8 @@ Expected behavior:
 export AMD_LLM_GATEWAY_KEY="PASTE_YOUR_KEY_HERE"
 ```
 
-4. Explain that the desired default is direct `claude` using `claude-opus-4-7`.
-5. Explain that model switching should be done by editing `~/.claude/settings.json`, for example to `claude-sonnet-4.6`.
+4. Explain that the desired default is direct `claude` using `claude-opus-5` at `--effort medium` (use `claude-opus-5-max` for max reasoning effort).
+5. Explain that model switching should be done by editing `~/.claude/settings.json`, for example to `claude-sonnet-5`.
 6. Explain which files the user must update locally.
 7. Give verification commands the user can run after they finish:
 
@@ -76,15 +76,15 @@ Expected behavior:
 2. Check whether the key is present without printing it.
 3. Run `claude-route` to confirm the machine is on direct mode and inspect the configured versus normalized model.
 4. Preserve the no-secret-in-git rule.
-5. If `~/.claude/settings.json` contains `opus[1m]` or another unsupported alias, repair it to `claude-sonnet-4.6` or `claude-opus-4-7`.
+5. If `~/.claude/settings.json` contains `opus[1m]`, a retired model such as `claude-opus-4-8`, or another unsupported alias, repair it to `claude-sonnet-5` or `claude-opus-5`.
 6. Re-test text output, model route, and a simple Bash tool call before declaring success.
 
-## Example 4: `/model` Still Shows Opus 4.6
+## Example 4: `/model` Does Not Offer Opus 5
 
 User request:
 
 ```text
-`claude-route` says Opus 4.7, but `/model` still shows `Opus 4.6 (1M context)`. Fix the menu without breaking the AMD direct wrapper.
+`claude-route` says Opus 5, but `/model` does not list it and the menu tops out at an older Opus. Fix the menu without breaking the AMD direct wrapper.
 ```
 
 Expected behavior:
@@ -94,4 +94,22 @@ Expected behavior:
 3. Check `claude --version` and inspect `readlink -f ~/.local/bin/claude` when present.
 4. If the native Claude Code build is old, run `claude update`.
 5. Explain that already-open interactive sessions can keep stale menu text until they are restarted.
-6. Re-run `claude-route` and a simple `claude -p --output-format json ...` check before declaring the fix complete.
+6. Explain that the menu comes from the binary's bundled model registry, so a just-released gateway model can be missing from it. This does not break routing: the wrapper passes `--model claude-opus-5` explicitly, and `modelUsage` in the JSON output proves which model answered.
+7. Do not "fix" a missing menu entry by downgrading `~/.claude/settings.json` to an older model.
+8. Re-run `claude-route` and a simple `claude -p --output-format json ...` check before declaring the fix complete.
+
+## Example 5: Cost Control Via Effort
+
+User request:
+
+```text
+Opus 5 sessions feel expensive. Can I lower how hard it thinks without switching models?
+```
+
+Expected behavior:
+
+1. Explain that this setup already pins non-max selections to `--effort medium`, instead of Claude Code's built-in `high` default.
+2. Confirm the active level with `claude-route` and check the `effort` field.
+3. For a single cheaper session, suggest `claude --effort low`; the wrapper stands down when the caller passes `--effort`.
+4. Explain that `claude-opus-5-max` is the opposite direction: same model, `--effort max`.
+5. Point out that `claude-sonnet-5` remains the lower-cost model choice if effort tuning is not enough.
