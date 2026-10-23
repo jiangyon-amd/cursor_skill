@@ -30,7 +30,7 @@ claude -p --output-format json 'Reply with exactly OK' | \
   python3 ".cursor/skills/claude-code-amd-setup/scripts/verify_output_model.py"
 ```
 
-6. Confirm that the reported model is either `claude-sonnet-5` or `claude-opus-5`.
+6. Confirm that the reported model is a supported direct model, normally `claude-opus-5-5`.
 7. Confirm that no real key was written into repository files.
 
 ## Example 2: Manual Fallback When User Will Not Share Key
@@ -51,7 +51,7 @@ Expected behavior:
 export AMD_LLM_GATEWAY_KEY="PASTE_YOUR_KEY_HERE"
 ```
 
-4. Explain that the desired default is direct `claude` using `claude-opus-5` at `--effort medium` (use `claude-opus-5-max` for max reasoning effort).
+4. Explain that the desired default is direct `claude` using `claude-opus-5-5` at `--effort medium` (use `claude-opus-5-5-max` for max reasoning effort).
 5. Explain that model switching should be done by editing `~/.claude/settings.json`, for example to `claude-sonnet-5`.
 6. Explain which files the user must update locally.
 7. Give verification commands the user can run after they finish:

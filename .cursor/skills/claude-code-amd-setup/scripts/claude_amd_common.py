@@ -5,9 +5,12 @@ User-facing model selections stored in ~/.claude/settings.json:
   - claude-sonnet-5     -> API model claude-sonnet-5 + reasoning effort "medium"
   - claude-opus-5       -> API model claude-opus-5 + reasoning effort "medium" (default)
   - claude-opus-5-max   -> API model claude-opus-5 + reasoning effort "max"
+  - claude-sonnet-5-5   -> API model claude-sonnet-5-5 + reasoning effort "medium"
+  - claude-opus-5-5     -> API model claude-opus-5-5 + reasoning effort "medium"
+  - claude-opus-5-5-max -> API model claude-opus-5-5 + reasoning effort "max"
 
 The AMD gateway has no separate "-max" deployment, so the "-max" selection is
-resolved locally to the real opus 5 model plus `--effort max`.
+resolved locally to the matching real model plus `--effort max`.
 
 Claude Code's own per-model default effort is "high". That is more expensive
 than this setup wants, so non-max selections pin an explicit "medium" instead of
@@ -22,12 +25,15 @@ import re
 import time
 from pathlib import Path
 
-DEFAULT_MODEL = "claude-opus-5"
+DEFAULT_MODEL = "claude-opus-5-5"
+SONNET_55 = "claude-sonnet-5-5"
+OPUS_55 = "claude-opus-5-5"
 # Real model names the AMD gateway actually serves.
-REAL_MODELS = {"claude-sonnet-5", "claude-opus-5"}
-# User-facing selections (includes the local "-max" effort alias).
-SUPPORTED_MODELS = {"claude-sonnet-5", "claude-opus-5", "claude-opus-5-max"}
+REAL_MODELS = {"claude-sonnet-5", "claude-opus-5", SONNET_55, OPUS_55}
+# User-facing selections (includes the local "-max" effort aliases).
+SUPPORTED_MODELS = REAL_MODELS | {"claude-opus-5-max", "claude-opus-5-5-max"}
 MAX_SELECTION = "claude-opus-5-max"
+MAX_SELECTION_55 = "claude-opus-5-5-max"
 # Explicit effort for non-max selections; overrides Claude Code's "high" default.
 DEFAULT_EFFORT = "medium"
 MAX_EFFORT = "max"
@@ -91,6 +97,12 @@ def normalize_model(raw: str | None) -> str:
         "claude-opus-5[1m]",
     }
 
+    if lowered in {"claude-opus-5.5", "claude-opus-5.5[1m]", "claude-opus-5-5[1m]"}:
+        return OPUS_55
+    if lowered in {"claude-opus-5.5-max", "claude-opus-5-5[max]"}:
+        return MAX_SELECTION_55
+    if lowered in {"claude-sonnet-5.5", "claude-sonnet-5.5[1m]", "claude-sonnet-5-5[1m]"}:
+        return SONNET_55
     if lowered in max_aliases or value in max_aliases:
         return MAX_SELECTION
     if lowered in sonnet_aliases or value in sonnet_aliases:
@@ -112,6 +124,8 @@ def resolve(selection: str) -> tuple[str, str]:
     """Return (real_api_model, effort) for a user-facing selection."""
     if selection == MAX_SELECTION:
         return "claude-opus-5", MAX_EFFORT
+    if selection == MAX_SELECTION_55:
+        return OPUS_55, MAX_EFFORT
     if selection in REAL_MODELS:
         return selection, DEFAULT_EFFORT
     return DEFAULT_MODEL, DEFAULT_EFFORT

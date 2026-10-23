@@ -10,9 +10,9 @@ description: Use when users want Claude Code configured for AMD LLM Gateway, nee
 Provide a safe workflow for setting up Claude Code against AMD LLM Gateway without committing secrets. The preferred result is:
 - `claude` always uses the direct AMD Anthropic endpoint
 - `~/.claude/settings.json` is the single source of truth for model selection
-- the supported selections are `claude-sonnet-5`, `claude-opus-5` (default), and `claude-opus-5-max`
+- the supported selections are `claude-opus-5-5` (default), `claude-opus-5-5-max`, `claude-sonnet-5-5`, plus the previous generation `claude-opus-5`, `claude-opus-5-max`, `claude-sonnet-5`
 - non-max selections run at an explicit reasoning `--effort medium`, because Claude Code's own per-model default is `high` and this setup deliberately does not inherit it
-- `claude-opus-5-max` is a local alias that runs `claude-opus-5` with reasoning `--effort max` (the gateway has no separate `-max` deployment)
+- `claude-opus-5-5-max` / `claude-opus-5-max` are local aliases that run `claude-opus-5-5` / `claude-opus-5` with reasoning `--effort max` (the gateway has no separate `-max` deployment)
 - startup logic repairs persisted `/model` aliases such as `opus[1m]` or retired models like `claude-opus-4-8` back to supported selections
 - if `/model` labels look older than `claude-route`, update the native Claude Code build and restart the session instead of changing wrapper precedence
 
@@ -30,8 +30,8 @@ Provide a safe workflow for setting up Claude Code against AMD LLM Gateway witho
 3. If the user does not provide the key, stop automatic setup and switch to placeholder-based manual steps.
 4. Keep secrets in user-local files such as `~/.bashrc`, not in the repository.
 5. Use the direct AMD Anthropic endpoint only. Do not add or restore proxy fallback.
-6. Default `claude` to `claude-opus-5`. Do not use retired models such as `claude-opus-4-8` or `claude-opus-4-7`.
-7. Keep `claude-sonnet-5` as the supported lower-cost direct model.
+6. Default `claude` to `claude-opus-5-5`. Do not use retired models such as `claude-opus-4-8` or `claude-opus-4-7`.
+7. Keep `claude-sonnet-5-5` as the supported lower-cost direct model.
 8. Never let the default selection run at `high` effort. Non-max selections must pass an explicit `--effort medium` rather than inheriting Claude Code's built-in `high` default.
 9. Treat `~/.claude/settings.json` as the supported model switch location.
 10. Verify `claude -p` works before claiming setup is complete.
@@ -147,10 +147,10 @@ Proceed with automatic local setup:
 
 1. write the key to `~/.config/claude-amd/env` (preferred; `chmod 600`) so non-interactive wrappers always load it; only use `~/.bashrc` if you keep the export above the interactive guard
 2. if `~/.local/bin/claude` exists, keep `~/.local/bin` after system paths; do not prepend it ahead of `/usr/local/bin`. If the native binary is missing, install it with `install_native.sh` (seed from an existing install when the download stalls)
-3. install or update the `claude` wrapper (plus `claude-route`, `claude_amd_common.py`, and `load_gateway_env.sh` alongside it) so it forces direct AMD Anthropic mode, defaults to `claude-opus-5` at `--effort medium`, resolves the `-max` effort alias, and normalizes unsupported persisted model aliases
+3. install or update the `claude` wrapper (plus `claude-route`, `claude_amd_common.py`, and `load_gateway_env.sh` alongside it) so it forces direct AMD Anthropic mode, defaults to `claude-opus-5-5` at `--effort medium`, resolves the `-max` effort alias, and normalizes unsupported persisted model aliases
 4. install or update `claude-route` so users can verify the direct route, current configured model, and resolved effort
 5. install `claude-selfupdate` so the native build can be kept current without `claude update` or the official installer
-6. set `~/.claude/settings.json` to a supported selection, normally `claude-opus-5`
+6. set `~/.claude/settings.json` to a supported selection, normally `claude-opus-5-5`
 7. if `claude --version` is old or `/model` still shows stale labels such as `Opus 4.8`, run `claude-selfupdate`
 8. after updating the native CLI, exit and relaunch any open interactive Claude session before trusting `/model`
 9. keep repository examples placeholder-based only
@@ -170,21 +170,25 @@ Use only these exact selection names in `~/.claude/settings.json`:
 
 | Selection | Real gateway model | Effort |
 |---|---|---|
-| `claude-sonnet-5` | `claude-sonnet-5` | `medium` |
-| `claude-opus-5` (default) | `claude-opus-5` | `medium` |
+| `claude-opus-5-5` (default) | `claude-opus-5-5` | `medium` |
+| `claude-opus-5-5-max` | `claude-opus-5-5` | `max` |
+| `claude-sonnet-5-5` | `claude-sonnet-5-5` | `medium` |
+| `claude-opus-5` | `claude-opus-5` | `medium` |
 | `claude-opus-5-max` | `claude-opus-5` | `max` |
+| `claude-sonnet-5` | `claude-sonnet-5` | `medium` |
 
 Default:
 
 ```json
 {
   "apiKeyHelper": "echo amd-gateway-placeholder",
-  "model": "claude-opus-5"
+  "model": "claude-opus-5-5"
 }
 ```
 
-If the user wants the lower-cost model, change `model` to `claude-sonnet-5`.
-For maximum reasoning effort, change `model` to `claude-opus-5-max`.
+If the user wants the lower-cost model, change `model` to `claude-sonnet-5-5`.
+For maximum reasoning effort, change `model` to `claude-opus-5-5-max`.
+Dotted spellings such as `claude-opus-5.5` are normalized to `claude-opus-5-5`.
 
 Retired selections (`claude-opus-4-8`, `claude-opus-4-7`, `claude-sonnet-4.6`, and
 their `.`/`-` and `[1m]` variants) are normalized to the current generation on the
@@ -204,9 +208,9 @@ down if you pass `--effort <level>` on the command line or export
 
 ### How the `-max` selection works
 
-The AMD gateway serves only real model names (`claude-opus-5`, `claude-sonnet-5`);
+The AMD gateway serves only real model names (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-opus-5`, `claude-sonnet-5`);
 there is no `claude-opus-5-max` deployment. The wrapper therefore resolves the
-`claude-opus-5-max` selection to the real model `claude-opus-5` and launches
+`-max` selections to the matching real model (`claude-opus-5-5` or `claude-opus-5`) and launches
 Claude Code with `--effort max`. The wrapper always passes an explicit
 `--model <real_model>` so the alias is never sent verbatim to the gateway.
 

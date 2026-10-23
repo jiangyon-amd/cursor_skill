@@ -45,8 +45,8 @@ settings.json: found
 {
   "mode": "direct",
   "backend": "claude-amd-anthropic",
-  "configured_model": "claude-opus-5",
-  "normalized_model": "claude-opus-5",
+  "configured_model": "claude-opus-5-5",
+  "normalized_model": "claude-opus-5-5",
   "effort": "medium",
   ...
 }
@@ -76,15 +76,15 @@ claude -p --output-format json 'Reply with exactly OK' | \
 Important:
 - this script verifies successful output against the supported direct models
 - it does not replace `claude-route`
-- use both checks together when you must prove the direct route is active and the resolved model is either `claude-sonnet-5` or `claude-opus-5`
+- use both checks together when you must prove the direct route is active and the resolved model is one of the supported direct models (`claude-opus-5-5` by default)
 
 ### `claude_amd_common.py`
 
 Shared helper for the wrappers. Responsibilities:
-- defines the supported selections: `claude-sonnet-5`, `claude-opus-5` (default), and `claude-opus-5-max`
+- defines the supported selections: `claude-opus-5-5` (default), `claude-opus-5-5-max`, `claude-sonnet-5-5`, `claude-opus-5`, `claude-opus-5-max`, and `claude-sonnet-5`
 - normalizes/repairs persisted aliases (e.g. `opus[1m]`, the retired `claude-opus-4-8`) back to a supported selection
 - pins non-max selections to reasoning `--effort medium` instead of Claude Code's built-in `high` default
-- resolves the local `claude-opus-5-max` alias to the real model `claude-opus-5` plus reasoning `--effort max`
+- resolves the local `-max` aliases to the matching real model (`claude-opus-5-5` or `claude-opus-5`) plus reasoning `--effort max`
 - emits route state for `claude-route` and the normalized `settings.json` for the wrapper
 
 Modes: `--route`, `--ensure-settings`, `--resolve`.

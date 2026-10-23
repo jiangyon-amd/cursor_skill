@@ -9,6 +9,8 @@ import sys
 SUPPORTED_DIRECT_MODELS = {
     "claude-sonnet-5",
     "claude-opus-5",
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
 }
 
 
